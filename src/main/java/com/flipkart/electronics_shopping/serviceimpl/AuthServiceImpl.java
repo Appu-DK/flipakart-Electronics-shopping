@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import com.flipkart.electronics_shopping.entity.Customer;
 import com.flipkart.electronics_shopping.entity.Seller;
 import com.flipkart.electronics_shopping.entity.User;
+import com.flipkart.electronics_shopping.exception.InvalidUserRoleException;
+import com.flipkart.electronics_shopping.exception.UserAlreadyRegisteredException;
 import com.flipkart.electronics_shopping.repository.CustomerRepo;
 import com.flipkart.electronics_shopping.repository.SellerRepo;
 import com.flipkart.electronics_shopping.repository.UserRepo;
@@ -53,7 +55,7 @@ public class AuthServiceImpl implements AuthService {
 		case CUSTOMER->{
 			user=new Customer();
 		}
-		default->{new RuntimeException();}
+		default->{throw new InvalidUserRoleException("user role is invalid");}
 
 		}
 
@@ -67,16 +69,23 @@ public class AuthServiceImpl implements AuthService {
 	public ResponseEntity<ResponseStructure<UserResponse>> register(UserRequest userRequest) {
 
 		User user=null;
-		if(userRepo.existsByUserEmail(userRequest.getUserEmail())==false){
-			user = mapToUser(userRequest);
-			String email = userRequest.getUserEmail();
-			String[] userName = email.split("@");
-			user.setUserName(userName[0]);
+		if(userRepo.existsByUserEmailAndIsEmailVerified(userRequest.getUserEmail(),true)==false){
 
-			userRepo.save(user);
+			if(userRepo.existsByUserEmail(userRequest.getUserEmail())==false) {
+				user = mapToUser(userRequest);
+				String email = userRequest.getUserEmail();
+				String[] userName = email.split("@");
+				user.setUserName(userName[0]);
+
+				userRepo.save(user);
+			}
+			else {
+				throw new RuntimeException();
+			}
+
 		}
 		else {
-			throw new RuntimeException();
+			throw new UserAlreadyRegisteredException("user is  already existing");
 		}
 
 		if(user instanceof Seller) {

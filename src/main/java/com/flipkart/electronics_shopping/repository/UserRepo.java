@@ -8,5 +8,7 @@ import com.flipkart.electronics_shopping.entity.User;
 
 public interface UserRepo extends JpaRepository<User, Integer> {
 
-	public boolean existsByUserEmail(String userEmail);
+	public boolean existsByUserEmailAndIsEmailVerified(String userEmail,boolean b);
+
+	public boolean existsByUserEmail(String email);
 }
