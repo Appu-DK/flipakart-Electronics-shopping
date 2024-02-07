@@ -3,6 +3,7 @@ package com.flipkart.electronics_shopping.serviceimpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.flipkart.electronics_shopping.entity.Customer;
@@ -32,6 +33,9 @@ public class AuthServiceImpl implements AuthService {
 
 	@Autowired
 	public ResponseStructure<UserResponse> structure;
+	
+	@Autowired
+	private PasswordEncoder encoder;
 
 	public UserResponse mapToUserRespone(User user) {
 		return UserResponse.builder()
@@ -60,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
 		}
 
 		user.setUserEmail(userRequest.getUserEmail());
-		user.setUserPassword(userRequest.getUserPassword());
+		user.setUserPassword(encoder.encode(userRequest.getUserPassword()));
 		user.setUserRole(userRequest.getUserRole());
 		return  (T) user;
 	}
@@ -80,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
 				userRepo.save(user);
 			}
 			else {
-				throw new RuntimeException();
+				//send an email to the client with otp
 			}
 
 		}
