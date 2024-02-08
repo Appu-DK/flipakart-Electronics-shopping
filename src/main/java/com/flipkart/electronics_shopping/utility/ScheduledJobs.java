@@ -16,7 +16,7 @@ public class ScheduledJobs {
 	private UserRepo userRepo;
 
 
-	@Scheduled(fixedDelay = 200l)
+	@Scheduled(cron="0 0 0 * * *")
 	public void softDeleteUser() {
 		List<User> users = userRepo.findByIsEmailVerified(false);
 		userRepo.deleteAll(users);
