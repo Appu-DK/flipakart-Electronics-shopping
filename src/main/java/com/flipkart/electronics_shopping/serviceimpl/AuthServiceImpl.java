@@ -146,10 +146,13 @@ public class AuthServiceImpl implements AuthService {
 
 		user.setEmailVerified(true);
 		userRepo.save(user);
+		
+		// send to  email After saving to database
+		confirmMail(user);
 
 
 		return new ResponseEntity<ResponseStructure<UserResponse>>(structure.setStatus(HttpStatus.CREATED.value())
-				.setData(mapToUserRespone(user)).setMessage("user saved to database successfully"),HttpStatus.CREATED);
+				.setData(mapToUserRespone(user)).setMessage("user saved  successfully"),HttpStatus.CREATED);
 
 	}
 
