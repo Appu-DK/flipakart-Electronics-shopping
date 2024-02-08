@@ -34,7 +34,7 @@ public class User {
 	private String userName;
 	private String userEmail;
 	private String userPassword;
-	@Enumerated(EnumType.STRING)
+	@Enumerated(EnumType.STRING) 
 	private UserRole userRole;
 	private boolean isEmailVerified;
 	private boolean isDeleted;
