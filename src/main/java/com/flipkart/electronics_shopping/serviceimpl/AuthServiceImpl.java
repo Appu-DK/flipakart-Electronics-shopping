@@ -1,10 +1,14 @@
 package com.flipkart.electronics_shopping.serviceimpl;
 
+import java.util.Date;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,10 +26,15 @@ import com.flipkart.electronics_shopping.requestdto.OtpModel;
 import com.flipkart.electronics_shopping.requestdto.UserRequest;
 import com.flipkart.electronics_shopping.responseddto.UserResponse;
 import com.flipkart.electronics_shopping.service.AuthService;
+import com.flipkart.electronics_shopping.utility.MessageStructure;
 import com.flipkart.electronics_shopping.utility.ResponseStructure;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @AllArgsConstructor
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -40,20 +49,18 @@ public class AuthServiceImpl implements AuthService {
 	private CustomerRepo customerRepo;
 
 	@Autowired
-	public ResponseStructure<UserResponse> structure;
+	private ResponseStructure<UserResponse> structure;
 
 	@Autowired
-	public PasswordEncoder encoder;
+	private PasswordEncoder encoder;
 
 	private CacheStore<String> otpCacheStrore;
 
 	private CacheStore<User> userCacheStore;
 
-	private String generateOtp() {
-		return String.valueOf(new Random().nextInt(100000,999999));
-	}
+	private JavaMailSender javaMailSender;
 
-	
+
 
 	public <T extends User>T mapToUser(UserRequest userRequest){
 
@@ -92,8 +99,14 @@ public class AuthServiceImpl implements AuthService {
 			userCacheStore.add(userRequest.getUserEmail(), user);
 			otpCacheStrore.add(userRequest.getUserEmail(), otp);
 
+			try {
+				sendOtpToMail(user, otp);
+			}catch(MessagingException e) {
+				log.error("the email address doesn't exist");
+			}
+
 			return new ResponseEntity<ResponseStructure<UserResponse>>(structure.setStatus(HttpStatus.ACCEPTED.value())
-					.setMessage("please verify your email id using OTP sent"+otp)
+					.setMessage("please verify your email id using OTP sent on email id")
 					.setData(mapToUserRespone(user)),HttpStatus.ACCEPTED);
 
 		}
@@ -139,7 +152,58 @@ public class AuthServiceImpl implements AuthService {
 				.setData(mapToUserRespone(user)).setMessage("user saved to database successfully"),HttpStatus.CREATED);
 
 	}
+
+	private void sendOtpToMail(User user,String otp) throws MessagingException {
+
+		sendMail(MessageStructure.builder()
+				.to(user.getUserEmail())
+				.Subject("complete your registration to flipkart")
+				.sentDate(new Date())
+				.text("hey"+user.getUserName()
+				+"Good to see you interested in flipkart,"
+				+"complete your regostartion using the otp<br>"
+				+"<h1>"+otp+"</h1><br>"
+				+"Note:the OTP expires in 1 minute"
+				+"<br><br>"
+				+"with best regards<br>"
+				+"Flipkart"
+
+						).build());
+
+
+	}
+
+	@Async
+	public void sendMail(MessageStructure message) throws MessagingException {
+
+		MimeMessage mimeMessage=javaMailSender.createMimeMessage();
+		MimeMessageHelper helper=new MimeMessageHelper(mimeMessage, true);
+
+		helper.setTo(message.getTo());
+		helper.setSubject(message.getSubject());
+		helper.setSentDate(message.getSentDate());
+		helper.setText(message.getText(),true);
+
+		javaMailSender.send(mimeMessage);
+
+	}
 	
+	public void  confirmMail(User user) {
+		MessageStructure.builder()
+		.to(user.getUserEmail())
+		.Subject("registration completed")
+		.sentDate(new Date())
+		.text("namaste to flipkart application"+user.getUserName())
+		.build();
+		
+	}
+
+
+	private String generateOtp() {
+		return String.valueOf(new Random().nextInt(100000,999999));
+	}
+
+
 	private UserResponse mapToUserRespone(User user) {
 		return UserResponse.builder()
 				.userEmail(user.getUserEmail())
