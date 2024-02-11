@@ -28,5 +28,20 @@ public class AuthExceptionHandler extends ResponseEntityExceptionHandler{
 		return structure(HttpStatus.NOT_FOUND, exception.getMessage(), "user role is invalid ");
 	}
 
+	//	@ExceptionHandler(OtpExpiredException.class)
+	//	public ResponseEntity<Object> otpExpiredException(OtpExpiredException ex){
+	//		return structure(HttpStatus.REQUEST_TIMEOUT,ex.getMessage(), "entered otp is already expired");
+	//	}
+	//
+	//	@ExceptionHandler(InvalidOtpException.class)
+	//	public ResponseEntity<Object> invalidOtpException(InvalidOtpException ex){
+	//		return structure(HttpStatus.UNAUTHORIZED,ex.getMessage(), "entered otp is invalid");	
+	//	}
+	//
+	//	@ExceptionHandler(SessionTimeExpiredException.class)
+	//	public ResponseEntity<Object> sessionTimeOutException(SessionTimeExpiredException ex){
+	//		return structure(HttpStatus.REQUEST_TIMEOUT, ex.getMessage(), "cache session has been expired");
+	//	}
+
 
 }
