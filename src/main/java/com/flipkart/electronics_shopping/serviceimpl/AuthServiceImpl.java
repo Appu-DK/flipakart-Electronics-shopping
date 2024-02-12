@@ -25,6 +25,7 @@ import com.flipkart.electronics_shopping.entity.Seller;
 import com.flipkart.electronics_shopping.entity.User;
 import com.flipkart.electronics_shopping.exception.InvalidUserRoleException;
 import com.flipkart.electronics_shopping.exception.UserAlreadyRegisteredException;
+import com.flipkart.electronics_shopping.exception.UserNotLoggedInException;
 import com.flipkart.electronics_shopping.repository.AccessTokenRepo;
 import com.flipkart.electronics_shopping.repository.CustomerRepo;
 import com.flipkart.electronics_shopping.repository.RefreshTokenRepo;
@@ -40,10 +41,12 @@ import com.flipkart.electronics_shopping.service.AuthService;
 import com.flipkart.electronics_shopping.utility.CookieManager;
 import com.flipkart.electronics_shopping.utility.MessageStructure;
 import com.flipkart.electronics_shopping.utility.ResponseStructure;
+import com.flipkart.electronics_shopping.utility.SimpleResponseStructure;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,6 +67,7 @@ public class AuthServiceImpl implements AuthService {
 
 	private ResponseStructure<AuthResponse> authStructure;
 
+	private SimpleResponseStructure simpleResponseStructure;
 
 	private PasswordEncoder encoder;
 
@@ -88,15 +92,17 @@ public class AuthServiceImpl implements AuthService {
 	@Value("${myapp.refresh.expiry}")
 	private long refreshExpiryInSeconds;
 
+
 	public AuthServiceImpl(UserRepo userRepo, SellerRepo sellerRepo, CustomerRepo customerRepo,
 			ResponseStructure<UserResponse> structure,ResponseStructure<AuthResponse> authStructure, PasswordEncoder encoder, CacheStore<String> otpCacheStrore,
 			CacheStore<User> userCacheStore, JavaMailSender javaMailSender, AuthenticationManager authenticationManager,
-			CookieManager cookieManager,JwtService jwtService,AccessTokenRepo accessTokenRepo,RefreshTokenRepo refreshTokenRepo) {
+			CookieManager cookieManager,JwtService jwtService,AccessTokenRepo accessTokenRepo,RefreshTokenRepo refreshTokenRepo,SimpleResponseStructure simpleResponseStructure) {
 		this.userRepo = userRepo;
 		this.sellerRepo = sellerRepo;
 		this.customerRepo = customerRepo;
 		this.structure = structure;
 		this.authStructure=authStructure;
+		this.simpleResponseStructure=simpleResponseStructure;
 		this.encoder = encoder;
 		this.otpCacheStrore = otpCacheStrore;
 		this.userCacheStore = userCacheStore;
@@ -200,7 +206,7 @@ public class AuthServiceImpl implements AuthService {
 		try {
 			confirmMail(user);
 		} catch (MessagingException e) {
-			
+
 			e.printStackTrace();
 		}
 
@@ -249,16 +255,79 @@ public class AuthServiceImpl implements AuthService {
 
 		accessTokenRepo.save(AccessToken.builder()
 				.accessToken(accessToken)
+				.user(user)
 				.isBlocked(false)
 				.expiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds))
 				.build());
 		refreshTokenRepo.save(RefreshToken.builder()
 				.refreshToken(refreshToken)
+				.user(user)
 				.isblocked(false)
 				.expiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds))
 				.build());
 
 	}
+
+	@Override
+	public ResponseEntity<ResponseStructure<AuthResponse>> logout(HttpServletRequest request,
+			HttpServletResponse response) {
+		Cookie[] cookies = request.getCookies();
+		String rt=null;
+		String at=null;
+
+		for(Cookie cookie :cookies) {
+			if(cookie.getName().equals("rt")) {
+				rt=cookie.getValue();
+			}
+			if(cookie.getName().equals("at")) {
+				at=cookie.getValue();
+			}
+		}
+		accessTokenRepo.findByAccessToken(at).ifPresent(accessToken->{
+			accessToken.setBlocked(true);
+			accessTokenRepo.save(accessToken);
+		});
+
+		refreshTokenRepo.findByRefreshToken(rt).ifPresent(refreshToken->{
+			refreshToken.setIsblocked(true);
+			refreshTokenRepo.save(refreshToken);
+		});
+
+		response.addCookie(cookieManager.invalidate(new Cookie(at,"")));
+		response.addCookie(cookieManager.invalidate(new Cookie(rt,"")));
+		authStructure.setMessage("invalildate cookie");
+		authStructure.setStatus(HttpStatus.OK.value());
+
+		return new ResponseEntity<ResponseStructure<AuthResponse>>(authStructure,HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<SimpleResponseStructure> logout(String refreshToken, String accessToken,HttpServletResponse response) {
+
+		if(accessToken==null||refreshToken==null) 
+			throw new UserNotLoggedInException("user not logged in");
+
+		accessTokenRepo.findByAccessToken(accessToken).ifPresent(at->{
+			at.setBlocked(true);
+			accessTokenRepo.save(at);
+		});
+		refreshTokenRepo.findByRefreshToken(refreshToken).ifPresent(rt->{
+			rt.setIsblocked(true);
+			refreshTokenRepo.save(rt);
+		});
+
+		response.addCookie(cookieManager.invalidate(new Cookie(accessToken,"")));
+		response.addCookie(cookieManager.invalidate(new Cookie(refreshToken,"")));
+
+		simpleResponseStructure.setMessage("invalidate cache while logged out");
+		simpleResponseStructure.setStatus(HttpStatus.OK.value());
+
+		return new ResponseEntity<SimpleResponseStructure>(simpleResponseStructure,HttpStatus.OK);
+
+
+	}
+
+
 
 
 	private void sendOtpToMail(User user,String otp) throws MessagingException {
@@ -322,6 +391,7 @@ public class AuthServiceImpl implements AuthService {
 				.isEmailVerified(user.isEmailVerified())
 				.build();
 	}
+
 
 
 }
